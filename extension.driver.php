@@ -1,24 +1,21 @@
 <?php
+
 	class Extension_WebHooks extends Extension {
-		private $about;
-		public function __construct() {
-			$this->about = array(
-				'name'         => 'WebHooks',
-				'version'      => '0.0.1',
-				'release-date' => '2011-09-01',
-				'dependencies' => array(
-					'pager' => '1.0.0'
-				),
-				'author'       => array(
-					'name'	  => 'Wilhelm Murdoch',
-					'website' => 'http://thedrunkenepic.com/',
-					'email'	  => 'wilhelm.murdoch@gmail.com'
-				)
-			);
+		public function __construct(Array $args){
+			parent::__construct($args);
 		}
 
 		public function about() {
-			return $this->about;
+			return array(
+				'name' => 'WebHooks',
+				'version' => '0.0.1',
+				'release-date' => '2011-09-01',
+				'author' => array(
+					'name' => 'Wilhelm Murdoch',
+					'website' => 'http://thedrunkenepic.com/',
+					'email' => 'wilhelm.murdoch@gmail.com'
+				)
+			);
 		}
 
 		public function install() {
@@ -46,13 +43,47 @@
 			return array(
 				array(
 					'location' => __('System'),
-					'name' => __($this->about['name']),
+					'name' => __('WebHooks'),
 					'link' => '/hooks/'
 				)
 			);
 		}
 
+		public static function baseURL(){
+			return SYMPHONY_URL . '/extension/webhooks/hooks';
+		}
+
 		public function getSubscribedDelegates() {
-			return array();
+			return array(
+				array(
+					'page' => '/publish/new/',
+					'delegate' => 'EntryPostCreate',
+					'callback' => '__pushNotification'
+				),
+				array(
+					'page' => '/publish/edit/',
+					'delegate' => 'EntryPostEdit',
+					'callback' => '__pushNotification'
+				),
+				array(
+					'page' => '/publish/',
+					'delegate' => 'Delete',
+					'callback' => '__pushNotification'
+				),
+			);
+		}
+
+		public function __pushNotification(array $context) {
+			switch($context['delegate']) {
+				case 'EntryPostCreate':
+				case 'EntryPostEdit':
+				case 'Delete':
+				default:
+					//return;
+			}
+			echo '<pre>';
+			print_r($context['section']->fetchFieldsSchema());
+			print_r($context['entry']->getData());
+			exit();
 		}
 	}

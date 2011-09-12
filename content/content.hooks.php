@@ -1,4 +1,13 @@
 <?php
+	try {
+		if(Symphony::ExtensionManager()->fetchStatus('pager') !== EXTENSION_ENABLED) {
+			throw new Exception;
+		}
+	} catch(Exception $Exception) {
+		throw new SymphonyErrorPage(__('This extension requires the `Pager` extension. You can find it here %s', array('<a href="https://github.com/wilhelm-murdoch/pager">github.com/wilhelm-murdoch/pager</a>')));
+	}
+
+	require_once EXTENSIONS.'/pager/lib/class.pager.php';
 	require_once TOOLKIT.'/class.administrationpage.php';
 	require_once TOOLKIT.'/class.sectionmanager.php';
 
@@ -14,20 +23,10 @@
 				$this->sectionNamesArray[$Section->get('id')] = $Section->get('name');
 			}
 		}
+
 		public function __viewIndex() {
-			if(Symphony::ExtensionManager()->fetchStatus('pager') === EXTENSION_ENABLED) {
-				require_once EXTENSIONS.'/pager/lib/class.pager.php';
-			} else {
-				$this->pageAlert(
-					__(
-						'WebHooks cannot be used without the `Pager` extension. Either enable it or download it from<a href="%1$s" accesskey="c">GitHub</a>.',
-						array(
-							'https://github.com/wilhelm-murdoch/pager'
-						)
-					),
-					Alert::ERROR
-				);
-				return;
+			if(isset($this->_context[1]) && $this->_context[1] == 'removed') {
+				$this->pageAlert(__('WebHook has been removed!'), Alert::SUCCESS);
 			}
 
 			$this->setPageType('table');
@@ -43,7 +42,7 @@
 				__('WebHooks'), 
 				Widget::Anchor(
 					__('Create New'), 
-					Administration::instance()->getCurrentPageURL().'new/', 
+					Extension_Webhooks::baseUrl().'/new/', 
 					__('Create a new webhook'), 
 					'create button', 
 					NULL, 
@@ -82,7 +81,7 @@
 					)
 				);
 			} else foreach($webHooks as $webHook) {
-				$labelRow = Widget::TableData(Widget::Anchor($webHook['label'], Administration::instance()->getCurrentPageURL()."edit/{$webHook['id']}"));
+				$labelRow = Widget::TableData(Widget::Anchor($webHook['label'], Extension_Webhooks::baseUrl()."/edit/{$webHook['id']}"));
 				$labelRow->appendChild(Widget::Input('items['.$webHook['id'].']', 'on', 'checkbox'));
 
 				$webHookTableBody[] = Widget::TableRow(array(
@@ -142,6 +141,8 @@
 						break;
 				}
 			}
+
+			redirect(Extension_WebHooks::baseUrl());
 		}
 
 		public function __actionNew() {
@@ -201,7 +202,7 @@
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks', '`id` = '.(int) $fields['id']);
 				} else {
-					$id = Symphony::Database()->insert(array(
+					Symphony::Database()->insert(array(
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
 						'event'      => $fields['event'],
@@ -222,14 +223,16 @@
 					__('WebHook has been updated successfully!'),
 					Alert::SUCCESS
 				);
-				return;				
+				return;
 			}
-			redirect(Administration::instance()->getCurrentPageURL()."/edit/{$id}/created/");
-			return;
+
+			redirect(Extension_WebHooks::baseUrl().'/edit/'.Symphony::Database()->getInsertID().'/created/');
 		}
 
 		public function __viewNew(array $fields = array()) {
-			if(false === empty($_POST) && false == $fields) $fields = $_POST['fields'];
+			if(false === empty($_POST) && false == $fields) {
+				$fields = $_POST['fields'];
+			}
 
 			$this->setPageType('form');
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Symphony'), __('WebHooks'))));
@@ -274,9 +277,9 @@
 				$section = $this->wrapFormElementWithError($section, $this->_errors['section_id']);
 
 			$options = array(
-				array('POST',   false, 'Add'), 
-				array('PUT',    false, 'Edit'), 
-				array('DELETE', false, 'Delete')
+				array('POST',   false, 'POST'), 
+				array('PUT',    false, 'PUT'), 
+				array('DELETE', false, 'DELETE')
 			);
 
 			if(isset($fields['event'])) {
@@ -299,9 +302,7 @@
 			$group->appendChild($event);
 
 			$isActive = Widget::Label();
-			$isActiveCheckbox = Widget::Input('fields[is_active]', 'yes', 'checkbox');
-			if(isset($fields['id']) || $fields['is_active'])
-				$isActiveCheckbox->setAttribute('checked', 'checked');
+			$isActiveCheckbox = Widget::Input('fields[is_active]', 'yes', 'checkbox', ($fields['is_active'] ? array('checked' => 'checked') : NULL));
 
 			$isActive->setValue(__('%1$s Activate this WebHook', array($isActiveCheckbox->generate())));
 
@@ -337,6 +338,7 @@
 				$_POST['items'] = array($_POST['fields']['id'] => '');
 				return $this->__actionIndex();
 			}
+
 			return $this->__actionNew();
 		}
 
