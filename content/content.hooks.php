@@ -53,7 +53,7 @@
 			$WebHookTableHead = array(
 					array(__('Label'),   'col'),
 					array(__('Section'), 'col'),
-					array(__('Event'),   'col'),
+					array(__('Verb'),    'col'),
 					array(__('Active'),  'col'),
 					array(__('URL'),     'col')
 			);
@@ -67,7 +67,7 @@
 					`id`,
 					`label`,
 					`section_id`,
-					`event`,
+					`verb`,
 					`url`,
 					`is_active` 
 				FROM `sym_extensions_webhooks`
@@ -87,7 +87,7 @@
 				$webHookTableBody[] = Widget::TableRow(array(
 						$labelRow,
 						Widget::TableData($this->sectionNamesArray[$webHook['section_id']]),
-						Widget::TableData($webHook['event']),
+						Widget::TableData($webHook['verb']),
 						Widget::TableData((bool) $webHook['is_active'] ? 'Yes' : 'No'),
 						Widget::TableData(Widget::Anchor($webHook['url'], $webHook['url']))
 					), 
@@ -165,19 +165,19 @@
 					FROM `sym_extensions_webhooks`
 					WHERE
 						    `section_id` = ".(int) $fields['section_id']."
-						AND `event`      = '".trim($fields['event'])."'
+						AND `verb`       = '".trim($fields['verb'])."'
 						AND `url`        = '".trim($fields['url'])."'
 				"));
 
 				if($uniqueConstraintCheck['count']) {
 					$this->_errors = array(
 						'section_id' => __('Unique constraint violation.'),
-						'event'      => __('Unique constraint violation.'),
+						'verb'       => __('Unique constraint violation.'),
 						'url'        => __('Unique constraint violation.')
 					);
 
 					$this->pageAlert(
-						__('The WebHook could not be saved. There has been a unique constraint violation. Please ensure you have a unique combination of `event`, `section` and `URL`.'),
+						__('The WebHook could not be saved. There has been a unique constraint violation. Please ensure you have a unique combination of `verb`, `section` and `URL`.'),
 						Alert::ERROR
 					);
 					return;
@@ -197,7 +197,7 @@
 					Symphony::Database()->update(array(
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
-						'event'      => $fields['event'],
+						'verb'       => $fields['verb'],
 						'url'        => General::sanitize($fields['url']),
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks', '`id` = '.(int) $fields['id']);
@@ -205,7 +205,7 @@
 					Symphony::Database()->insert(array(
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
-						'event'      => $fields['event'],
+						'verb'       => $fields['verb'],
 						'url'        => General::sanitize($fields['url']),
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks');
@@ -282,24 +282,24 @@
 				array('DELETE', false, 'DELETE')
 			);
 
-			if(isset($fields['event'])) {
+			if(isset($fields['verb'])) {
 				foreach($options as &$option) {
-					if($option[0] == $fields['event'])
+					if($option[0] == $fields['verb'])
 						$option[1] = true;
 				}
 			}
 
-			$event = Widget::Label(__('Event'));
-			$event->appendChild(Widget::Select('fields[event]', $options));
+			$verb = Widget::Label(__('Verb'));
+			$verb->appendChild(Widget::Select('fields[verb]', $options));
 
-			if(isset($this->_errors['event']))
-				$event = $this->wrapFormElementWithError($event, $this->_errors['event']);
+			if(isset($this->_errors['verb']))
+				$verb = $this->wrapFormElementWithError($verb, $this->_errors['verb']);
 
 			$group = new XMLElement('div');
 			$group->setAttribute('class', 'group');
 
 			$group->appendChild($section);
-			$group->appendChild($event);
+			$group->appendChild($verb);
 
 			$isActive = Widget::Label();
 			$isActiveCheckbox = Widget::Input('fields[is_active]', 'yes', 'checkbox', ($fields['is_active'] ? array('checked' => 'checked') : NULL));
@@ -352,7 +352,7 @@
 						`id`,
 						`label`,
 						`section_id`,
-						`event`,
+						`verb`,
 						`url`,
 						`is_active` 
 					FROM `sym_extensions_webhooks`

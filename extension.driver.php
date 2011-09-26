@@ -1,10 +1,45 @@
 <?php
+	require_once TOOLKIT.'/class.sectionmanager.php';
+	require_once TOOLKIT.'/class.gateway.php';
 
+	/**
+	 * @package extensions/webhooks
+	 */
+	/**
+	 * A simple Symphony extesnion that allows developers to assocation WebHooks with content publishing
+	 * events. These hooks are assigned to a content section and then to a specific event delegate for
+	 * the content associated within this section: PUT, POST, DELETE. If a matching event occurs within
+	 * an assigned content section, this extension will send a push notification to the specified URL
+	 * with the event type and all information associated with the content entry.
+	 */
 	class Extension_WebHooks extends Extension {
-		public function __construct(Array $args){
+		/**
+		 * Request timeout, in seconds, for push notifications.
+		 * @var const
+		 * @access public
+		 */
+		const __NOTIFICATION_TIMEOUT = 15;
+
+		/**
+		 * Instantiates this class and assigns values to properties.
+		 *
+		 * @access public
+		 * @param array $args
+		 *  Any arguments passed via URL query string with be relayed through here.
+		 * @return NULL
+		 */
+		public function __construct(array $args){
 			parent::__construct($args);
 		}
 
+		/**
+		 * Method that provides metadata relevant to this extension.
+		 *
+		 * @access public
+		 * @param none
+		 * @return array
+		 *	Extension metadata.
+		 */
 		public function about() {
 			return array(
 				'name' => 'WebHooks',
@@ -18,6 +53,14 @@
 			);
 		}
 
+		/**
+		 * Installs this extension by adding the appropriate tables to the database.
+		 *
+		 * @access public
+		 * @param none
+		 * @return boolean
+		 *	TRUE if successful, FALSE if failed.
+		 */
 		public function install() {
 			return Symphony::Database()->import("
 				DROP TABLE IF EXISTS `sym_extensions_webhooks`;
@@ -25,7 +68,7 @@
 					`id` int(11) unsigned NOT NULL AUTO_INCREMENT,
 					`label` varchar(64) DEFAULT NULL,
 					`section_id` int(11) DEFAULT NULL,
-					`event` enum('POST','PUT','DELETE') DEFAULT NULL,
+					`verb` enum('POST','PUT','DELETE') DEFAULT NULL,
 					`url` varchar(256) DEFAULT NULL,
 					`is_active` tinyint(1) DEFAULT 1,
 				PRIMARY KEY (`id`)
@@ -33,12 +76,28 @@
 			");
 		}
 
+		/**
+		 * Uninstalls this extension by removing the appropriate tables from the database.
+		 *
+		 * @access public
+		 * @param none
+		 * @return boolean
+		 *	TRUE if successful, FALSE if failed.
+		 */
 		public function uninstall() {
 			return Symphony::Database()->import("
 				DROP TABLE IF EXISTS `sym_extensions_webhooks`
 			");
 		}
 
+		/**
+		 * Adds a navigation entry at the specified position to the administrative control panel.
+		 *
+		 * @access public
+		 * @param none
+		 * @return array
+		 *	Menu entries and their associated locations, positions within existing menus.
+		 */
 		public function fetchNavigation() {
 			return array(
 				array(
@@ -49,10 +108,27 @@
 			);
 		}
 
+		/**
+		 * Utility method for grabbing the base URL for the WebHook management area.
+		 *
+		 * @access public
+		 * @param none
+		 * @return string
+		 *	Base URL for WebHook management.
+		 */
 		public static function baseURL(){
 			return SYMPHONY_URL . '/extension/webhooks/hooks';
 		}
 
+		/**
+		 * The delegates, and associated callbacks, used by this extension. This extension
+		 * essentially watches for edited, removed and created content from ALL sections.
+		 *
+		 * @access public
+		 * @param none
+		 * @return array
+		 *	Array containing a list of delegates and their associated callbacks for this extensiono.
+		 */
 		public function getSubscribedDelegates() {
 			return array(
 				array(
@@ -69,21 +145,200 @@
 					'page' => '/publish/',
 					'delegate' => 'Delete',
 					'callback' => '__pushNotification'
-				),
+				)
 			);
 		}
 
+		/**
+		 * Responsible for sending push notifications for all active WebHooks.
+		 *
+		 * @access public
+		 * @param array $context
+		 *  The current Symphony context.
+		 * @return NULL
+		 * @uses Gateway
+		 * @uses Entry
+		 * @uses Log
+		 * @uses Section
+		 */
 		public function __pushNotification(array $context) {
+			/**
+			 * Determine the proper HTTP method verb based on the given Symphony delegate:
+			 */
 			switch($context['delegate']) {
-				case 'EntryPostCreate':
 				case 'EntryPostEdit':
+					$verb = 'PUT';
+					break;
 				case 'Delete':
+					$verb = 'DELETE';
+					break;
+				case 'EntryPostCreate':
 				default:
-					//return;
+					$verb = 'POST';
 			}
-			echo '<pre>';
-			print_r($context['section']->fetchFieldsSchema());
-			print_r($context['entry']->getData());
-			exit();
+
+			/**
+			 * POST, PUT, DELETE action has been intercepted.
+			 *
+			 * @delegate WebHookInit
+			 * @param string $context
+			 * '/publish/'
+			 * @param Section $Section
+			 * @param Entry $Entry
+			 * @param string $verb
+			 */
+			Symphony::ExtensionManager()->notifyMembers('WebHookInit', '/publish/', array('section' => $Section, 'entry' => $Entry, 'verb' => $verb));
+
+			/**
+			 * Grab all active WebHooks so we can begin cycling through them;
+			 */
+			$webHooks = Symphony::Database()->fetch('
+				SELECT
+					`id`,
+					`label`,
+					`section_id`,
+					`verb`,
+					`url`,
+					`is_active` 
+				FROM `sym_extensions_webhooks`
+				WHERE `is_active` = TRUE
+			');
+
+
+			/**
+			 * Obviously, we don't want to go any farther if we don't have any active
+			 * WebHooks to iterate through:
+			 */
+			if(false == count($webHooks))
+				return;
+
+
+			/**
+			 * Declare a few variables we'll be using throughout the rest of the process:
+			 *
+			 * $section: an instance of class `Section` containing the current entry's associated Symphony section `class.section.php`
+			 * $entry:   an instance of class `Entry` containing the current Symphony entry `class.entry.php`
+			 * $Gateway: an instance of class `Gateway`, Symphony's HTTP request utility `class.gateway.php`
+			 * $Log:     an instance of class `Log`, Symphony's logging utility. We use this to track any issues we might come accross
+			 */
+			$section = current($context['section']->fetchFieldsSchema());
+			$entry   = $context['entry']->getData();
+
+			$Gateway = new Gateway;
+
+			$Gateway->init();
+			$Gateway->setopt('HTTPHEADER', array('Content-Type:' => 'application/json'));
+			$Gateway->setopt('TIMEOUT', self::__NOTIFICATION_TIMEOUT);
+			$Gateway->setopt('POST', TRUE);
+
+			$Log = new Log(__NOTIFICATION_LOG);
+
+
+			/**
+			 * Begin iterating through our active WebHooks. Only send push notifications using WebHooks that contain
+			 * a `section_id` and `verb` that corresponds with the current entry:
+			 */
+			foreach($webHooks as $webHook) {
+				if($section['id'] == $webHook['section_id'] && $webHook['verb'] == $verb) {
+					/**
+					 * Being the notification process by setting the appropriate request options:
+					 * 
+					 * URL:        This is the destination of our notification
+					 * POSTFIELDS: This contains the body of our notification: verb: $webHook['verb'], callback: $webHook['url'], body: JSON-encoded string representing our entry
+					 */
+					$Gateway->setopt('URL',  $webHook['url']);
+					$Gateway->setopt('POSTFIELDS', $this->__compilePayload($context['section'], $context['entry'], $webHook));
+
+
+					/**
+					 * Obviously, we don't want to continue if something goes wrong. So, let's log this error
+					 * and move on to the next active WebHook:
+					 *
+					 * @todo Probably best to use exception handling for this stuff; possibly create a WebHook exception class.
+					 */
+					if(false === $response = $Gateway->exec()) {
+						$Log->pushToLog(
+							sprintf(
+								'Notification Failed[cURL Error]: section: %d, entry: %d, verb: %d, url: %d',
+								$section['id'],
+								$context['entry']->get('id'),
+								$verb,
+								$webHook['url']
+							), E_ERROR, true
+						);	
+						continue;
+					} else {
+						/**
+						 * We need to make sure we have a valid response from our URL. At the moment, we consider only responses with the
+						 * HTTP response code of 200 OK.
+						 *
+						 * @todo Allow for more extensive error checking and better HTTP response support.
+						 */
+						$responseInfo = $Gateway->getInfoLast();
+
+						if($responseInfo['http_code'] != 200) {
+							$Log->pushToLog(
+								sprintf(
+									'Notification Failed[Response Code: %s]: section: %d, entry: %d, verb: %s, url: %s',
+									$responseInfo['http_code'],
+									$section['id'],
+									$context['entry']->get('id'),
+									$verb,
+									$webHook['url']
+								), E_ERROR, true
+							);
+							continue;
+						}
+					}
+				}
+			}
+		}
+
+		/**
+		 * Responsible for compiling the body of the notification payload.
+		 *
+		 * @access private
+		 * @param object $Section
+		 *  An instance of class `Section` representing the current entry's associated Symphony section.
+		 * @param object $Entry
+		 *  An instance of class `Entry` representing the current Symphony entry
+		 * @param array $webHook
+		 *  The current active WebHook we are preparing the notification payload for.
+		 * @return array
+		 *	Contains the current payload that will be passed along the notification in the POST body of the request.
+		 */
+		private function __compilePayload(Section $Section, Entry $Entry, array $webHook) {
+			$body = array();
+			$data = $Entry->getData();
+			foreach($Section->fetchFieldsSchema() as $field) {
+				$field['value'] = $data[$field['id']];
+				$body[] = $field;
+			}
+
+			$return = array(
+				'verb'     => $webHook['verb'],
+				'callback' => $webHook['url'],
+				'body'     => json_encode(array_values($body))
+			);
+
+			/**
+			 * Notification body has been created.
+			 *
+			 * @delegate WebHookBodyCompile
+			 * @param string $context
+			 * '/publish/'
+			 * @param Section $Section
+			 * @param Entry $Entry
+			 * @param array $webHook
+			 * @param array $return
+			 */
+			Symphony::ExtensionManager()->notifyMembers('WebHookBodyCompile', '/publish/', array('section' => $Section, 'entry' => $Entry, 'webhook' => &$webHook, 'return' => &$return));
+
+			return $return;
 		}
 	}
+
+	/**
+	 * Absolute file path to the WebHooks log file (Must be writable!):
+	 */
+	define_safe('__NOTIFICATION_LOG', EXTENSIONS.'/webhooks/logs/main');
