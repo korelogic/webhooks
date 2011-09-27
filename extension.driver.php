@@ -205,7 +205,6 @@
 			if(false == count($webHooks))
 				return;
 
-
 			/**
 			 * Declare a few variables we'll be using throughout the rest of the process:
 			 *
@@ -214,14 +213,19 @@
 			 * $Gateway: an instance of class `Gateway`, Symphony's HTTP request utility `class.gateway.php`
 			 * $Log:     an instance of class `Log`, Symphony's logging utility. We use this to track any issues we might come accross
 			 */
-			$section = current($context['section']->fetchFieldsSchema());
-			$entry   = $context['entry']->getData();
+			if($verb == 'DELETE') {
+				$pageCallback = Administration::instance()->getPageCallback();
+				$section = $this->__getSectionByHandle($pageCallback['context']['section_handle']);
+			} else {
+				$section = current($context['section']->fetchFieldsSchema());
+				$entry   = $context['entry']->getData();
+			}
 
 			$Gateway = new Gateway;
 
 			$Gateway->init();
 			$Gateway->setopt('HTTPHEADER', array('Content-Type:' => 'application/json'));
-			$Gateway->setopt('TIMEOUT', self::__NOTIFICATION_TIMEOUT);
+			$Gateway->setopt('TIMEOUT', __NOTIFICATION_TIMEOUT);
 			$Gateway->setopt('POST', TRUE);
 
 			$Log = new Log(__NOTIFICATION_LOG);
@@ -240,7 +244,7 @@
 					 * POSTFIELDS: This contains the body of our notification: verb: $webHook['verb'], callback: $webHook['callback'], body: JSON-encoded string representing our entry
 					 */
 					$Gateway->setopt('URL',  $webHook['callback']);
-					$Gateway->setopt('POSTFIELDS', $this->__compilePayload($context['section'], $context['entry'], $webHook));
+					$Gateway->setopt('POSTFIELDS', ($verb == 'DELETE' ? json_encode($section) : $this->__compilePayload($context['section'], $context['entry'], $webHook)));
 
 
 					/**
@@ -254,7 +258,7 @@
 							sprintf(
 								'Notification Failed[cURL Error]: section: %d, entry: %d, verb: %d, url: %d',
 								$section['id'],
-								$context['entry']->get('id'),
+								($verb == 'DELETE' ? $context['entry_id'][0] : $context['entry']->get('id')),
 								$verb,
 								$webHook['callback']
 							), E_ERROR, true
@@ -275,7 +279,7 @@
 									'Notification Failed[Response Code: %s]: section: %d, entry: %d, verb: %s, url: %s',
 									$responseInfo['http_code'],
 									$section['id'],
-									$context['entry']->get('id'),
+									($verb == 'DELETE' ? $context['entry_id'][0] : $context['entry']->get('id')),
 									$verb,
 									$webHook['callback']
 								), E_ERROR, true
@@ -328,6 +332,19 @@
 			Symphony::ExtensionManager()->notifyMembers('WebHookBodyCompile', '/publish/', array('section' => $Section, 'entry' => $Entry, 'webhook' => &$webHook, 'return' => &$return));
 
 			return $return;
+		}
+
+		/**
+		 * Returns a section record from the given section handle value.
+		 *
+		 * @access private
+		 * @param string $sectionHandle
+		 *  The handle of the section to search for.
+		 * @return array
+		 *	Associative array containing the database record of the matching section.
+		 */
+		private function __getSectionByHandle($sectionHandle) {
+			return current(Symphony::Database()->fetch("SELECT `id` FROM `sym_sections` WHERE `handle` = '{$sectionHandle}'"));
 		}
 	}
 

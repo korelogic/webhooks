@@ -1,5 +1,0 @@
-2011/09/27 00:54:36 > Error: Notification Failed[Response Code: 404]: section: 1, entry: 41, verb: 0, url: 0
-2011/09/27 00:55:08 > Error: Notification Failed[Response Code: 404]: section: 1, entry: 42, verb: POST, url: http://local.thedrunkenepic.com/webhook.php
-2011/09/27 00:55:16 > Error: Notification Failed[Response Code: 404]: section: 1, entry: 43, verb: POST, url: http://local.thedrunkenepic.com/webhook.php
-2011/09/27 00:56:36 > Error: Notification Failed[Response Code: 404]: section: 1, entry: 44, verb: POST, url: http://local.thedrunkenepic.com/webhook.php
-2011/09/27 01:37:37 > Error: Notification Failed[cURL Error]: section: 1, entry: 44, verb: 0, url: 0

@@ -51,7 +51,7 @@ All payloads are delivered to the specified `Callback URL` as an HTTP POST reque
 * `$_POST['body']` This contains a JSON object that contains the sections fields and corresponding values of the associated `Target Section` entry
 
 ### JSON Body
-All payloads, currently, are delivered in the following standard JSON format:
+POST and PUT payloads, currently, are delivered in the following standard JSON format:
 
 	[
 	   {
@@ -84,6 +84,14 @@ All payloads, currently, are delivered in the following standard JSON format:
 	]
 
 This is simply an array that contains object representing `Target Section` fields and their associated values for this entry.
+
+DELETE payloads, however, differ as they only provide the entry id of the delete record:
+
+	[
+		{
+			"id":"1"
+		}
+	]
 
 ### Headers
 Here are the following HTTP headers that are sent along each notification. This list may change in the future.
