@@ -1,4 +1,11 @@
 <?php
+	/**
+	 * This extension requires the `pager` extension to be installed and active. This is used
+	 * to generate standardized pagination for some of the management pages. This can be 
+	 * obtained from Github:
+	 *
+	 * @link https://github.com/wilhelm-murdoch/pager
+	 */
 	try {
 		if(Symphony::ExtensionManager()->fetchStatus('pager') !== EXTENSION_ENABLED) {
 			throw new Exception;
@@ -7,12 +14,39 @@
 		throw new SymphonyErrorPage(__('This extension requires the `Pager` extension. You can find it here %s', array('<a href="https://github.com/wilhelm-murdoch/pager">github.com/wilhelm-murdoch/pager</a>')));
 	}
 
+
+	/**
+	 * We need a few standard Symphony libraries as well:
+	 */
 	require_once EXTENSIONS.'/pager/lib/class.pager.php';
 	require_once TOOLKIT.'/class.administrationpage.php';
 	require_once TOOLKIT.'/class.sectionmanager.php';
 
+
+	/**
+	 * @package extensions/webhooks
+	 */
+	/**
+	 * This class is responsible for generating the management areas of this extension.
+	 */
 	class ContentExtensionWebhooksHooks extends AdministrationPage {
+		/**
+		 * Represents the total number of records for the particular data set. This is used to 
+		 * calculate the number of total pages to navigate through.
+		 * @var integer
+		 * @access private
+		 */
 		private $sectionNamesArray;
+
+		/**
+		 * Instantiates the extension and populates array ContentExtensionWebhooksHooks::$sectionNamesArray
+		 * with a key/value set representing a list of sections.
+		 *
+		 * @param Administration $parent
+		 *  Instance of class AdministrationPage
+		 * @access public
+		 * @return NULL
+		 */
 		public function __construct(Administration &$parent) {
 			parent::__construct($parent);
 
@@ -24,6 +58,13 @@
 			}
 		}
 
+		/**
+		 * Displays the WebHooks index page within the Symphony administration panel.
+		 *
+		 * @access public
+		 * @param none
+		 * @return NULL
+		 */
 		public function __viewIndex() {
 			if(isset($this->_context[1]) && $this->_context[1] == 'removed') {
 				$this->pageAlert(__('WebHook has been removed!'), Alert::SUCCESS);
@@ -51,11 +92,11 @@
 			);
 
 			$WebHookTableHead = array(
-					array(__('Label'),   'col'),
-					array(__('Section'), 'col'),
-					array(__('Verb'),    'col'),
-					array(__('Active'),  'col'),
-					array(__('URL'),     'col')
+					array(__('Label'),        'col'),
+					array(__('Section'),      'col'),
+					array(__('Verb'),         'col'),
+					array(__('Active'),       'col'),
+					array(__('Callback URL'), 'col')
 			);
 
 			$totalWebHooks = array_pop(Symphony::Database()->fetch("SELECT COUNT(1) AS count FROM `sym_extensions_webhooks`"));
@@ -68,7 +109,7 @@
 					`label`,
 					`section_id`,
 					`verb`,
-					`url`,
+					`callback`,
 					`is_active` 
 				FROM `sym_extensions_webhooks`
 				ORDER BY `id` DESC '.$Pager->getLimit(true)
@@ -89,7 +130,7 @@
 						Widget::TableData($this->sectionNamesArray[$webHook['section_id']]),
 						Widget::TableData($webHook['verb']),
 						Widget::TableData((bool) $webHook['is_active'] ? 'Yes' : 'No'),
-						Widget::TableData(Widget::Anchor($webHook['url'], $webHook['url']))
+						Widget::TableData(Widget::Anchor($webHook['callback'], $webHook['callback']))
 					), 
 					'odd'
 				);
@@ -123,6 +164,13 @@
 			$this->Form->appendChild($Pager->save());
 		}
 
+		/**
+		 * Displays the WebHooks index page within the Symphony administration panel.
+		 *
+		 * @access public
+		 * @param none
+		 * @return NULL
+		 */
 		public function __actionIndex() {
 			if(false === isset($_POST['with-selected'])) {
 				return;
@@ -145,6 +193,13 @@
 			redirect(Extension_WebHooks::baseUrl());
 		}
 
+		/**
+		 * Processes and validates new and updated webhook records.
+		 *
+		 * @access public
+		 * @param none
+		 * @return NULL
+		 */
 		public function __actionNew() {
 			require_once TOOLKIT.'/util.validators.php';
 			$fields = $_POST['fields'];
@@ -156,8 +211,8 @@
 			if(false === isset($this->sectionNamesArray[$fields['section_id']]))
 				$this->_errors['section_id'] = __('`Section` is a required field.');
 
-			if(false === isset($fields['url']) || false === preg_match($validators['URI'], $fields['url']) || false == trim($fields['url']))
-				$this->_errors['url'] = __('`URL` is a required field and must be a valid address.');
+			if(false === isset($fields['callback']) || false === preg_match($validators['URI'], $fields['callback']) || false == trim($fields['callback']))
+				$this->_errors['callback'] = __('`Callback URL` is a required field and must be a valid address.');
 
 			if(empty($this->_errors) && false === isset($fields['id'])) {
 				$uniqueConstraintCheck = array_pop(Symphony::Database()->fetch("
@@ -166,18 +221,18 @@
 					WHERE
 						    `section_id` = ".(int) $fields['section_id']."
 						AND `verb`       = '".trim($fields['verb'])."'
-						AND `url`        = '".trim($fields['url'])."'
+						AND `callback`   = '".trim($fields['callback'])."'
 				"));
 
 				if($uniqueConstraintCheck['count']) {
 					$this->_errors = array(
 						'section_id' => __('Unique constraint violation.'),
 						'verb'       => __('Unique constraint violation.'),
-						'url'        => __('Unique constraint violation.')
+						'callback'   => __('Unique constraint violation.')
 					);
 
 					$this->pageAlert(
-						__('The WebHook could not be saved. There has been a unique constraint violation. Please ensure you have a unique combination of `verb`, `section` and `URL`.'),
+						__('The WebHook could not be saved. There has been a unique constraint violation. Please ensure you have a unique combination of `Verb`, `Section` and `Callback URL`.'),
 						Alert::ERROR
 					);
 					return;
@@ -198,7 +253,7 @@
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
 						'verb'       => $fields['verb'],
-						'url'        => General::sanitize($fields['url']),
+						'callback'   => General::sanitize($fields['callback']),
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks', '`id` = '.(int) $fields['id']);
 				} else {
@@ -206,7 +261,7 @@
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
 						'verb'       => $fields['verb'],
-						'url'        => General::sanitize($fields['url']),
+						'callback'   => General::sanitize($fields['callback']),
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks');
 				}
@@ -229,6 +284,15 @@
 			redirect(Extension_WebHooks::baseUrl().'/edit/'.Symphony::Database()->getInsertID().'/created/');
 		}
 
+		/**
+		 * Generates the form used to create new, and edit existing, webhooks. Nothing really special
+		 * going on here except that when field values are either passed as a parameter or as a $_POST
+		 * value, this method will automatically populate the forms with the relevant information.
+		 *
+		 * @access public
+		 * @param none
+		 * @return NULL
+		 */
 		public function __viewNew(array $fields = array()) {
 			if(false === empty($_POST) && false == $fields) {
 				$fields = $_POST['fields'];
@@ -250,13 +314,13 @@
 			if(isset($this->_errors['label']))
 				$label = $this->wrapFormElementWithError($label, $this->_errors['label']);
 
-			$url = Widget::Label(__('URL'));
-			$url->appendChild(Widget::Input(
-				'fields[url]', General::sanitize($fields['url'])
+			$callback = Widget::Label(__('Callback URL'));
+			$callback->appendChild(Widget::Input(
+				'fields[callback]', General::sanitize($fields['callback'])
 			));
 
-			if(isset($this->_errors['url']))
-				$url = $this->wrapFormElementWithError($url, $this->_errors['url']);
+			if(isset($this->_errors['callback']))
+				$callback = $this->wrapFormElementWithError($callback, $this->_errors['callback']);
 
 			$options = array(array(NULL, false, __('Select One...')));
 			foreach($this->sectionNamesArray as $id => $name) {
@@ -321,7 +385,7 @@
 
 			$fieldset->appendChild($label);
 			$fieldset->appendChild($group);
-			$fieldset->appendChild($url);
+			$fieldset->appendChild($callback);
 			$fieldset->appendChild($isActive);
 			$fieldset->appendChild($actions);
 
@@ -332,6 +396,17 @@
 			$this->Form->appendChild($fieldset);
 		}
 
+		/**
+		 * Called when the 'save changes' button is clicked on the webhook edit screen. Or, alternatively,
+		 * when the 'delete' button is clicked from the edit screen. In the case of the latter, we populate
+		 * the $_POST array and redirect to '__actionIndex' so we can use the code that's already there to
+		 * delete the chosen webhook. However, saving changes to an existing webhook just redirects to the 
+		 * '__actionIndex' method as it houses code for both editing and saving.
+		 *
+		 * @access public
+		 * @param none
+		 * @return ContentExtensionWebhooksHooks::__actionIndex() OR ContentExtensionWebhooksHooks::__actionNew()
+		 */
 		public function __actionEdit() {
 			if(isset($_POST['action']['delete']) && isset($_POST['fields']['id'])) {
 				$_POST['with-selected'] = 'delete';
@@ -342,6 +417,16 @@
 			return $this->__actionNew();
 		}
 
+		/**
+		 * If a record id of an existing webhook has been provided, this method will attempt
+		 * to retrieve the corresponding record from the database and provide the result to
+		 * ContentExtensionWebhooksHooks::__viewNew() to generate the resulting form for editing
+		 * purposes.
+		 *
+		 * @access public
+		 * @param none
+		 * @return ContentExtensionWebhooksHooks::__viewNew();
+		 */
 		public function __viewEdit() {
 			if(
 				isset($this->_context[0]) && $this->_context[0] === 'edit' && 
@@ -353,7 +438,7 @@
 						`label`,
 						`section_id`,
 						`verb`,
-						`url`,
+						`callback`,
 						`is_active` 
 					FROM `sym_extensions_webhooks`
 					WHERE `id` = '.(int) $this->_context[1]

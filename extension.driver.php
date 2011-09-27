@@ -14,13 +14,6 @@
 	 */
 	class Extension_WebHooks extends Extension {
 		/**
-		 * Request timeout, in seconds, for push notifications.
-		 * @var const
-		 * @access public
-		 */
-		const __NOTIFICATION_TIMEOUT = 15;
-
-		/**
 		 * Instantiates this class and assigns values to properties.
 		 *
 		 * @access public
@@ -69,7 +62,7 @@
 					`label` varchar(64) DEFAULT NULL,
 					`section_id` int(11) DEFAULT NULL,
 					`verb` enum('POST','PUT','DELETE') DEFAULT NULL,
-					`url` varchar(256) DEFAULT NULL,
+					`callback` varchar(255) DEFAULT NULL,
 					`is_active` tinyint(1) DEFAULT 1,
 				PRIMARY KEY (`id`)
 				) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
@@ -244,9 +237,9 @@
 					 * Being the notification process by setting the appropriate request options:
 					 * 
 					 * URL:        This is the destination of our notification
-					 * POSTFIELDS: This contains the body of our notification: verb: $webHook['verb'], callback: $webHook['url'], body: JSON-encoded string representing our entry
+					 * POSTFIELDS: This contains the body of our notification: verb: $webHook['verb'], callback: $webHook['callback'], body: JSON-encoded string representing our entry
 					 */
-					$Gateway->setopt('URL',  $webHook['url']);
+					$Gateway->setopt('URL',  $webHook['callback']);
 					$Gateway->setopt('POSTFIELDS', $this->__compilePayload($context['section'], $context['entry'], $webHook));
 
 
@@ -263,7 +256,7 @@
 								$section['id'],
 								$context['entry']->get('id'),
 								$verb,
-								$webHook['url']
+								$webHook['callback']
 							), E_ERROR, true
 						);	
 						continue;
@@ -284,7 +277,7 @@
 									$section['id'],
 									$context['entry']->get('id'),
 									$verb,
-									$webHook['url']
+									$webHook['callback']
 								), E_ERROR, true
 							);
 							continue;
@@ -317,7 +310,7 @@
 
 			$return = array(
 				'verb'     => $webHook['verb'],
-				'callback' => $webHook['url'],
+				'callback' => $webHook['callback'],
 				'body'     => json_encode(array_values($body))
 			);
 
@@ -342,3 +335,8 @@
 	 * Absolute file path to the WebHooks log file (Must be writable!):
 	 */
 	define_safe('__NOTIFICATION_LOG', EXTENSIONS.'/webhooks/logs/main');
+
+	/**
+	 * Request timeout, in seconds, for push notifications.
+	 */
+	define_safe('__NOTIFICATION_TIMEOUT', 15);
