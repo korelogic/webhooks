@@ -191,7 +191,7 @@
 					`label`,
 					`section_id`,
 					`verb`,
-					`url`,
+					`callback`,
 					`is_active` 
 				FROM `sym_extensions_webhooks`
 				WHERE `is_active` = TRUE

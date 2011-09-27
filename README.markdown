@@ -1,6 +1,6 @@
 # WebHooks
  
-* Version: 0.1.0
+* Version: v0.1.0
 * Author: Wilhelm Murdoch
 * Build Date: 2011-09-27
 * Requirements: Symphony 2.2.3
@@ -19,7 +19,6 @@ Say, you want to notify an external service whenever you post a new blog article
 ## Usage
 ### Overview
 Once installation is complete, you will find a new menu item under 'System' within the Symphony administration panel. Clicking on this menu item will take you to the WebHooks index. From here, you will have a bird's eye view of all your current WebHooks, as well as options for managing them.
-Using this utility class is quite straight-forward:
 
 ### Creating
 Creating a new WebHook is a fairly straight forward process. Just click on the 'Create New' button located on the top right-hand corner of the WebHooks index screen, you will be taken to a new screen where you will provide the details of your new WebHook.
