@@ -179,12 +179,45 @@
 			foreach($_POST['items'] as $id => $state) {
 				switch($_POST['with-selected']) {
 					case 'enable':
+						/**
+						 * Fires off before a WebHook is enabled.
+						 *
+						 * @delegate WebHookPreEnable
+						 * @param string $context
+						 * '/extensions/webhooks/'
+						 * @param integer id
+						 *  WebHook record id
+						 */
+						Symphony::ExtensionManager()->notifyMembers('WebHookPreEnable', '/extension/webhooks/', array('id' => (int) $id));
+
 						Symphony::Database()->update(array('is_active' => true), 'sym_extensions_webhooks', '`id` = '.(int) $id);
 						break;
 					case 'disable':
+						/**
+						 * Fires off before a WebHook is disabled.
+						 *
+						 * @delegate WebHookPreDisable
+						 * @param string $context
+						 * '/extensions/webhooks/'
+						 * @param integer id
+						 *  WebHook record id
+						 */
+						Symphony::ExtensionManager()->notifyMembers('WebHookPreDisable', '/extension/webhooks/', array('id' => (int) $id));
+
 						Symphony::Database()->update(array('is_active' => false), 'sym_extensions_webhooks', '`id` = '.(int) $id);
 						break;
 					case 'delete':
+						/**
+						 * Fires off before a WebHook is deleted.
+						 *
+						 * @delegate WebHookPreDelete
+						 * @param string $context
+						 * '/extensions/webhooks/'
+						 * @param integer id
+						 *  WebHook record id
+						 */
+						Symphony::ExtensionManager()->notifyMembers('WebHookPreDelete', '/extension/webhooks/', array('id' => (int) $id));
+
 						Symphony::Database()->delete('sym_extensions_webhooks', '`id` = '.(int) $id);
 						break;
 				}
@@ -249,6 +282,17 @@
 
 			try {
 				if(isset($fields['id'])) {
+					/**
+					 * Fires off before a WebHook is updated.
+					 *
+					 * @delegate WebHookPreUpdate
+					 * @param string $context
+					 * '/extensions/webhooks/'
+					 * @param array $fields
+					 *  Values representing a webhook
+					 */
+					Symphony::ExtensionManager()->notifyMembers('WebHookPreUpdate', '/extension/webhooks/', array('fields' => &$fields));
+
 					Symphony::Database()->update(array(
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
@@ -257,6 +301,17 @@
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks', '`id` = '.(int) $fields['id']);
 				} else {
+					/**
+					 * Fires off before a WebHook is created.
+					 *
+					 * @delegate WebHookPreInsert
+					 * @param string $context
+					 * '/extensions/webhooks/'
+					 * @param array $fields
+					 *  Values representing a webhook
+					 */
+					Symphony::ExtensionManager()->notifyMembers('WebHookPreInsert', '/extension/webhooks/', array('fields' => &$fields));
+
 					Symphony::Database()->insert(array(
 						'label'      => General::sanitize($fields['label']),
 						'section_id' => (int) $fields['section_id'],
@@ -264,6 +319,17 @@
 						'callback'   => General::sanitize($fields['callback']),
 						'is_active'  => isset($fields['is_active']) ? TRUE : FALSE
 					), 'sym_extensions_webhooks');
+
+					/**
+					 * Fires off after a WebHook is created.
+					 *
+					 * @delegate WebHookPostInsert
+					 * @param string $context
+					 * '/extensions/webhooks/'
+					 * @param integer $id
+					 *  WebHook record id
+					 */
+					Symphony::ExtensionManager()->notifyMembers('WebHookPostInsert', '/extension/webhooks/', array('id' => (int) Symphony::Database()->getInsertID()));
 				}
 			} catch(Exception $Exception) {
 				$this->pageAlert(

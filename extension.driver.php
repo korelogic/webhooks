@@ -6,7 +6,7 @@
 	 * @package extensions/webhooks
 	 */
 	/**
-	 * A simple Symphony extesnion that allows developers to assocation WebHooks with content publishing
+	 * A simple Symphony extension that allows developers to assocate WebHooks with content publishing
 	 * events. These hooks are assigned to a content section and then to a specific event delegate for
 	 * the content associated within this section: PUT, POST, DELETE. If a matching event occurs within
 	 * an assigned content section, this extension will send a push notification to the specified URL
