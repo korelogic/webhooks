@@ -32,10 +32,16 @@ Here is a breakdown of the form fields:
 * `Callback URL` This is the URL notifications will be sent to
 * `Activate this WebHook` Obviously, this will activate or deactivate your WebHook
 
-Once the form is filled out, just click on the 'Create Webhook' button in the lower right-hand side of the screen and you should be good to go.
+Once the form is filled out, just click on the 'Create Webhook' button in the lower right-hand side of the screen and you should be good to go. Something I should note is that there is a unique constraint when creating new WebHooks. You must ensure you have a unique combination of `Verb`, `Section` and `Callback URL` upon creation, otherwise, Symphony will throw an error your way.
 
 ### Editing
+To edit an existing WebHook, just go back to the index screen and click on the `Label` of any entry. You will be taken to the edit screen where you can make any changes you like. Remember, before saving your changes, be sure this WebHook doesn't conflict with another existing one; unique constraints still apply here.
+
 ### Deleting
+There are two methods of WebHook deletion:
+
+1. On the index, select any number of existing WebHooks. Then, on the lower right-hand corner of the screen, select 'Delete' from the 'With selected...' dropdown box and click 'Apply'. You will be asked to confirm your decision before Symphony removes the records.
+2. On an edit screen, there exists a small 'delete' button in the lower left-hand corner of the screen. Click it, confirm your decision and you will be redirected back to the index screen with the record removed.
 
 ## Notification Payload
 ### Overview
