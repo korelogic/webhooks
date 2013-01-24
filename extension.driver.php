@@ -158,6 +158,8 @@
 			/**
 			 * Determine the proper HTTP method verb based on the given Symphony delegate:
 			 */
+			
+			 
 			switch($context['delegate']) {
 				case 'EntryPostEdit':
 					$verb = 'PUT';
@@ -213,11 +215,10 @@
 			 * $Gateway: an instance of class `Gateway`, Symphony's HTTP request utility `class.gateway.php`
 			 * $Log:     an instance of class `Log`, Symphony's logging utility. We use this to track any issues we might come accross
 			 */
-			if($verb == 'DELETE') {
-				$pageCallback = Administration::instance()->getPageCallback();
-				$section = $this->__getSectionByHandle($pageCallback['context']['section_handle']);
-			} else {
-				$section = current($context['section']->fetchFieldsSchema());
+			$pageCallback = Administration::instance()->getPageCallback();
+			$section = $this->__getSectionByHandle($pageCallback['context']['section_handle']); 
+			 
+			if($verb != 'DELETE') {
 				$entry   = $context['entry']->getData();
 			}
 
@@ -236,7 +237,10 @@
 			 * a `section_id` and `verb` that corresponds with the current entry:
 			 */
 			foreach($webHooks as $webHook) {
+			
 				if($section['id'] == $webHook['section_id'] && $webHook['verb'] == $verb) {
+				
+					
 					/**
 					 * Being the notification process by setting the appropriate request options:
 					 * 
@@ -288,6 +292,7 @@
 						}
 					}
 				}
+				
 			}
 		}
 
