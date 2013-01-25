@@ -250,7 +250,10 @@
 					$Gateway->setopt('URL',  $webHook['callback']);
 					$Gateway->setopt('POSTFIELDS', ($verb == 'DELETE' ? json_encode($section) : $this->__compilePayload($context['section'], $context['entry'], $webHook)));
 
-
+						//echo "<pre>";
+						//var_dump($this->__compilePayload($context['section'], $context['entry'], $webHook));
+						//echo "</pre>";
+						//die();
 					/**
 					 * Obviously, we don't want to continue if something goes wrong. So, let's log this error
 					 * and move on to the next active WebHook:
@@ -312,6 +315,8 @@
 		private function __compilePayload(Section $Section, Entry $Entry, array $webHook) {
 			$body = array();
 			$data = $Entry->getData();
+			$entry = $Entry->get();
+			
 			foreach($Section->fetchFieldsSchema() as $field) {
 				$field['value'] = $data[$field['id']];
 				$body[] = $field;
@@ -320,6 +325,7 @@
 			$return = array(
 				'verb'     => $webHook['verb'],
 				'callback' => $webHook['callback'],
+				'entry'  =>   json_encode($entry),
 				'body'     => json_encode(array_values($body))
 			);
 
